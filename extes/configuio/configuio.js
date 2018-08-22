@@ -5,7 +5,11 @@ const app = express()
 const AWS = require('aws-sdk');
 
 const uuid = require('uuid');
+var multer = require('multer')
+var multerS3 = require('multer-s3')
 
+const CONFIGUIO_S3_UPLOAD = process.env.CONFIGUIO_S3_UPLOAD;
+const s3BucketUpload = new AWS.S3({params: {Bucket: CONFIGUIO_S3_UPLOAD}});
 
 const CONFIGUIO_TABLE = process.env.CONFIGUIO_TABLE;
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
@@ -198,6 +202,46 @@ app.get('/configuio/project/setDeactive/:uuId', function (req, res) {
     });
 })
 
+
+var uploadImage1 = multer({
+    storage: multerS3({
+        s3: s3BucketUpload,
+        bucket: CONFIGUIO_S3_UPLOAD,
+        contentType: multerS3.AUTO_CONTENT_TYPE,
+        metadata: function (req, file, cb) {
+            cb(null, {fieldName: file.fieldname});
+        },
+        key: function (req, file, cb) {
+            cb(null, Date.now().toString())
+        }
+    })
+});
+
+// Upload 1 Project endpoint
+app.post('/configuio/project/uploadImage1/:uuId', uploadImage1.array('photos', 3), function (req, res) {
+    const uuId = req.params.uuId;
+    var fileName = "/uploads/"+uuId+"/";
+
+    const timestamp = new Date().getTime();
+    const data = req;
+
+
+    var params = {
+        Key: fileName,
+        Body: data,
+        XSD: req.files.length,
+    };
+    console.log(params);
+    res.status(400).json({ error: 'Function stop' });
+
+    // s3bucket.upload(params, function (err, res) {
+    //     if(err)
+    //         console.log("Error in uploading file on s3 due to "+ err)
+    //     else
+    //         console.log("File successfully uploaded.")
+    // });
+
+})
 
 
 

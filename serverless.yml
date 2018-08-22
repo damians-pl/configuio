@@ -27,6 +27,7 @@ provider:
   environment:
     USERS_TABLE: ${self:custom.tableUserName}
     CONFIGUIO_TABLE: ${self:custom.tableConfiguioName}
+    CONFIGUIO_S3_UPLOAD: ${self:custom.s3BucketUpload}
 
 functions:
   home:
