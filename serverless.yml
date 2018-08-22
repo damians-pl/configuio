@@ -3,6 +3,7 @@ service: configuio
 custom:
   tableUserName: 'users-table-${self:provider.stage}'
   tableConfiguioName: 'configuio-table-${self:provider.stage}'
+  s3BucketUpload: 'configuio-upload-${self:provider.stage}'
 
 provider:
   name: aws
@@ -18,9 +19,11 @@ provider:
           - dynamodb:PutItem
           - dynamodb:UpdateItem
           - dynamodb:DeleteItem
+          - s3:*
         Resource:
           - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
           - { "Fn::GetAtt": ["ConfiguioDynamoDBTable", "Arn" ] }
+          - { "Fn::GetAtt": ["S3BucketUpload", "Arn" ] }
   environment:
     USERS_TABLE: ${self:custom.tableUserName}
     CONFIGUIO_TABLE: ${self:custom.tableConfiguioName}
@@ -80,3 +83,11 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableConfiguioName}
+    S3BucketUpload:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: PublicRead
+        BucketName: ${self:custom.s3BucketUpload}
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: error.html
