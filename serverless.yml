@@ -1,7 +1,7 @@
 service: configuio
 
 custom:
-  tableName: 'users-table-${self:provider.stage}'
+  tableUserName: 'users-table-${self:provider.stage}'
   tableConfiguioName: 'configuio-table-${self:provider.stage}'
 
 provider:
@@ -20,8 +20,9 @@ provider:
           - dynamodb:DeleteItem
         Resource:
           - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
+          - { "Fn::GetAtt": ["ConfiguioDynamoDBTable", "Arn" ] }
   environment:
-    USERS_TABLE: ${self:custom.tableName}
+    USERS_TABLE: ${self:custom.tableUserName}
     CONFIGUIO_TABLE: ${self:custom.tableConfiguioName}
 
 functions:
@@ -37,6 +38,13 @@ functions:
     events:
       - http:
           path: user/{proxy+}
+          method: ANY
+          cors: true
+  configuio:
+    handler: extes/configuio/configuio.handler
+    events:
+      - http:
+          path: configuio/{proxy+}
           method: ANY
           cors: true
 
@@ -56,7 +64,7 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName}
+        TableName: ${self:custom.tableUserName}
     ConfiguioDynamoDBTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:
@@ -71,4 +79,4 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName}
+        TableName: ${self:custom.tableConfiguioName}

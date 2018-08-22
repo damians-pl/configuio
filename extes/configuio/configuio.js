@@ -4,6 +4,8 @@ const express = require('express')
 const app = express()
 const AWS = require('aws-sdk');
 
+const uuid = require('uuid');
+
 
 const CONFIGUIO_TABLE = process.env.CONFIGUIO_TABLE;
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
@@ -12,7 +14,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 app.use(bodyParser.json({ strict: false }));
 
 
-// Get User endpoint
+// Get Project List endpoint
 app.get('/configuio/project/list', function (req, res) {
     const params = {
         TableName: CONFIGUIO_TABLE,
@@ -32,35 +34,35 @@ app.get('/configuio/project/list', function (req, res) {
     });
 })
 
-// Get User endpoint
-app.get('/configuio/get/:userId', function (req, res) {
+// Get Project by uuId endpoint
+app.get('/configuio/project/get/:uuId', function (req, res) {
     const params = {
         TableName: CONFIGUIO_TABLE,
         Key: {
-            userId: req.params.userId,
+            uuId: req.params.uuId,
         },
     }
 
     dynamoDb.get(params, (error, result) => {
         if (error) {
             console.log(error);
-            res.status(400).json({ error: 'Could not get user' });
+            res.status(400).json({ error: 'Could not get project' });
         }
         if (result.Item) {
-            const {userId, userName} = result.Item;
-            res.json({ userId, userName });
+            const db = result.Item;
+            res.json(db);
         } else {
-            res.status(404).json({ error: "User not found" });
+            res.status(404).json({ error: "Project not found" });
         }
     });
 })
 
 // Delete User endpoint
-app.get('/configuio/delete/:userId', function (req, res) {
+app.get('/configuio/project/delete/:uuId', function (req, res) {
     const params = {
         TableName: CONFIGUIO_TABLE,
         Key: {
-            userId: req.params.userId,
+            uuId: req.params.uuId,
         },
     }
 
@@ -70,58 +72,64 @@ app.get('/configuio/delete/:userId', function (req, res) {
             res.status(400).json({ error: 'Could not delete user' });
         }
 
-        res.json();
+        res.json({uuId: req.params.uuId});
     });
 })
 
-// Create User endpoint
-app.post('/configuio/create', function (req, res) {
-    const { userId, userName } = req.body;
+// Create Project endpoint
+app.post('/configuio/project/create', function (req, res) {
+    const timestamp = new Date().getTime();
+    const data = req.body;
+    const uuId = uuid.v1();
 
-    if (typeof userId !== 'string') {
-        res.status(400).json({ error: '"userId" must be a string' });
-    } else if (typeof userName !== 'string') {
-        res.status(400).json({ error: '"name" must be a string' });
+    console.log("Pokaz data:");
+    console.log(data);
+
+    if (typeof data.projectName !== 'string') {
+        res.status(400).json({ error: '"projectName" must be a string' });
     }
 
     const params = {
         TableName: CONFIGUIO_TABLE,
         Item: {
-            userId: userId,
-            userName: userName,
+            uuId: uuId,
+            projectName: data.projectName,
+            active: false,
+            createdAt: timestamp,
+            updatedAt: timestamp,
         },
     };
 
     dynamoDb.put(params, (error) => {
         if (error) {
             console.log(error);
-            res.status(400).json({ error: 'Could not create user' });
+            res.status(400).json({ error: 'Could not create project' });
         }
-        res.json({ userId, userName });
+        res.json({ uuId: uuId});
     });
 })
 
-// Update User endpoint
-app.post('/configuio/update/:userId', function (req, res) {
+// Update Project endpoint
+app.post('/configuio/project/update/:uuId', function (req, res) {
 
     const timestamp = new Date().getTime();
-    const data = JSON.parse(JSON.stringify(req.body));
+    const data = req.body;
 
-    if (typeof data.userName !== 'string') {
-        res.status(400).json({ error: '"name" must be a string' });
+    if (typeof data.projectName !== 'string') {
+        res.status(400).json({ error: '"projectName" must be a string' });
     }
 
     const params = {
         TableName: CONFIGUIO_TABLE,
         Key: {
-            userId: req.params.userId,
+            uuId: req.params.uuId,
         },
         ExpressionAttributeValues: {
-            ':userName': data.userName,
+            ':projectName': data.projectName,
             ':active': data.active || false,
             ':updatedAt': timestamp,
         },
-        UpdateExpression: 'SET userName = :userName, active = :active, updatedAt = :updatedAt',
+        UpdateExpression: 'SET projectName = :projectName, active = :active, updatedAt = :updatedAt',
         ReturnValues: 'ALL_NEW',
     };
 
@@ -130,9 +138,67 @@ app.post('/configuio/update/:userId', function (req, res) {
             console.log(error);
             res.status(400).json({ error: 'Could not update user' });
         }
-        res.json();
+        res.json({uuId: req.params.uuId});
     });
 })
+
+// Active Project endpoint
+app.get('/configuio/project/setActive/:uuId', function (req, res) {
+
+    const timestamp = new Date().getTime();
+    const data = req.body;
+
+    const params = {
+        TableName: CONFIGUIO_TABLE,
+        Key: {
+            uuId: req.params.uuId,
+        },
+        ExpressionAttributeValues: {
+            ':active': true,
+            ':updatedAt': timestamp,
+        },
+        UpdateExpression: 'SET active = :active, updatedAt = :updatedAt',
+        ReturnValues: 'ALL_NEW',
+    };
+
+    dynamoDb.update(params, (error) => {
+        if (error) {
+            console.log(error);
+            res.status(400).json({ error: 'Could not update project' });
+        }
+        res.json({uuId: req.params.uuId});
+    });
+})
+
+// DeActive Project endpoint
+app.get('/configuio/project/setDeactive/:uuId', function (req, res) {
+
+    const timestamp = new Date().getTime();
+    const data = req.body;
+
+    const params = {
+        TableName: CONFIGUIO_TABLE,
+        Key: {
+            uuId: req.params.uuId,
+        },
+        ExpressionAttributeValues: {
+            ':active': false,
+            ':updatedAt': timestamp,
+        },
+        UpdateExpression: 'SET active = :active, updatedAt = :updatedAt',
+        ReturnValues: 'ALL_NEW',
+    };
+
+    dynamoDb.update(params, (error) => {
+        if (error) {
+            console.log(error);
+            res.status(400).json({ error: 'Could not update project' });
+        }
+        res.json({uuId: req.params.uuId});
+    });
+})
+
+
 
 
 module.exports.handler = serverless(app);
