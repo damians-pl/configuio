@@ -9,6 +9,7 @@ var multer = require('multer')
 var multerS3 = require('multer-s3')
 
 const CONFIGUIO_S3_UPLOAD = process.env.CONFIGUIO_S3_UPLOAD;
+const s3 = new AWS.S3({apiVersion: '2006-03-01'});
 const s3BucketUpload = new AWS.S3({params: {Bucket: CONFIGUIO_S3_UPLOAD}});
 
 const CONFIGUIO_TABLE = process.env.CONFIGUIO_TABLE;
@@ -202,15 +203,40 @@ app.get('/configuio/project/setDeactive/:uuId', function (req, res) {
     });
 })
 
+// TEST
+app.get('/configuio/test', function (req, res) {
+    var html = '<!DOCTYPE html>\n' +
+        '<html lang="en">\n' +
+        '<head>\n' +
+        '  <meta charset="UTF-8">\n' +
+        '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+        '  <meta http-equiv="X-UA-Compatible" content="ie=edge">\n' +
+        '  <title>S3 Demo</title>\n' +
+        '</head>\n' +
+        '<body>\n' +
+        '  <p>Upload file to S3</p>\n' +
+        '  <form action="/dev/configuio/project/uploadImage1/71f0a240-a620-11e8-b0d4-1bb54381c7f9" method="POST" enctype="multipart/form-data">\n' +
+        '    <fieldset>\n' +
+        '      <legend>Upload file</legend>\n' +
+        '      <input type="file" name="image">\n' +
+        '      <input type="submit">\n' +
+        '    </fieldset>\n' +
+        '  </form>\n' +
+        '</body>\n' +
+        '</html>';
+    res.send(html);
+})
+
 
 var uploadImage1 = multer({
     storage: multerS3({
-        s3: s3BucketUpload,
-        bucket: CONFIGUIO_S3_UPLOAD,
+        s3: s3,
+        bucket: 'configuio-upload-dev',
+        acl: 'public-read',
         contentType: multerS3.AUTO_CONTENT_TYPE,
-        metadata: function (req, file, cb) {
-            cb(null, {fieldName: file.fieldname});
-        },
+        // metadata: function (req, file, cb) {
+        //     cb(null, {fieldName: file.fieldname});
+        // },
         key: function (req, file, cb) {
             cb(null, Date.now().toString())
         }
@@ -218,7 +244,7 @@ var uploadImage1 = multer({
 });
 
 // Upload 1 Project endpoint
-app.post('/configuio/project/uploadImage1/:uuId', uploadImage1.array('photos', 3), function (req, res) {
+app.post('/configuio/project/uploadImage1/:uuId', uploadImage1.single('image'), function (req, res) {
     const uuId = req.params.uuId;
     var fileName = "/uploads/"+uuId+"/";
 
