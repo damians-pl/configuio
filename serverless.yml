@@ -2,6 +2,7 @@ service: configuio
 
 custom:
   tableName: 'users-table-${self:provider.stage}'
+  tableConfiguioName: 'configuio-table-${self:provider.stage}'
 
 provider:
   name: aws
@@ -21,6 +22,7 @@ provider:
           - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
   environment:
     USERS_TABLE: ${self:custom.tableName}
+    CONFIGUIO_TABLE: ${self:custom.tableConfiguioName}
 
 functions:
   home:
@@ -50,6 +52,21 @@ resources:
         KeySchema:
           -
             AttributeName: userId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}
+    ConfiguioDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: uuId
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: uuId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
