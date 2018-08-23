@@ -6,7 +6,8 @@ const AWS = require('aws-sdk');
 
 const uuid = require('uuid');
 var multer = require('multer')
-var multerS3 = require('multer-s3')
+var fs = require('fs');
+//var multerS3 = require('multer-s3')
 
 const CONFIGUIO_S3_UPLOAD = process.env.CONFIGUIO_S3_UPLOAD;
 const s3 = new AWS.S3({apiVersion: '2006-03-01'});
@@ -228,44 +229,82 @@ app.get('/configuio/test', function (req, res) {
 })
 
 
-var uploadImage1 = multer({
-    storage: multerS3({
-        s3: s3,
-        bucket: 'configuio-upload-dev',
-        acl: 'public-read',
-        contentType: multerS3.AUTO_CONTENT_TYPE,
-        // metadata: function (req, file, cb) {
-        //     cb(null, {fieldName: file.fieldname});
-        // },
-        key: function (req, file, cb) {
-            cb(null, Date.now().toString())
-        }
-    })
-});
+// var uploadImage1 = multer({
+//     storage: multerS3({
+//         s3: s3,
+//         bucket: 'configuio-upload-dev',
+//         acl: 'public-read',
+//         contentType: multerS3.AUTO_CONTENT_TYPE,
+//         // metadata: function (req, file, cb) {
+//         //     cb(null, {fieldName: file.fieldname});
+//         // },
+//         key: function (req, file, cb) {
+//             cb(null, Date.now().toString())
+//         }
+//     })
+// });
+
+
+function uploadToS3(file, destFileName, callback) {
+    var uploadImage2 = multer({limits: {fileSize:10*1024*1024}}).array();
+    s3BucketUpload
+        .upload({
+            ACL: 'public-read',
+            Body: file.buffer,
+            Key: destFileName.toString(),
+            ContentType: 'application/octet-stream'
+        })
+        // .on('httpUploadProgress', function(evt) { console.log(evt); })
+        .send(callback);
+}
+
 
 // Upload 1 Project endpoint
-app.post('/configuio/project/uploadImage1/:uuId', uploadImage1.single('image'), function (req, res) {
-    const uuId = req.params.uuId;
-    var fileName = "/uploads/"+uuId+"/";
-
+var uploadImage1 = multer({limits: {fileSize:10*1024*1024}}).single("image");
+app.post('/configuio/project/uploadImage1/:uuId', uploadImage1, function (req, res) {
     const timestamp = new Date().getTime();
-    const data = req;
+    const uuId = req.params.uuId;
+
+    var dirBucketSave = "/uploads/configuio/"+uuId+"/project/";
+    var fileNameBucketSave = "uploadImage1";
+    var fileNameUpload = req.file;
+    // var pid = '10000' + parseInt(Math.random() * 10000000);
+
+    // console.log(req.file);
+
+    if (!fileNameUpload) {
+        return res.status(403).send('expect 1 file upload named "image"').end();
+    }
+
+    if (!/^image\/(jpe?g|png)$/i.test(fileNameUpload.mimetype)) {
+        return res.status(403).send('expect image file').end();
+    }
+
+    uploadToS3(fileNameUpload, fileNameBucketSave, function (err, data) {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('failed to upload to s3' + err).end();
+        }
+
+        res.status(200)
+            .send('File uploaded to S3: '
+                + data.Location.replace(/</g, '&lt;')
+                + '<br/><img src="' + data.Location.replace(/"/g, '&quot;') + '"/>')
+            .end();
+    })
 
 
-    var params = {
-        Key: fileName,
-        Body: data,
-        XSD: req.files.length,
-    };
-    console.log(params);
-    res.status(400).json({ error: 'Function stop' });
+    //////////
+    // upload(req, res, function (err) {
+    //     if (err) {
+    //         console.error(err);
+    //         return res.status(500).send('failed to upload to s3').end();
+    //     }
+    //
 
-    // s3bucket.upload(params, function (err, res) {
-    //     if(err)
-    //         console.log("Error in uploading file on s3 due to "+ err)
-    //     else
-    //         console.log("File successfully uploaded.")
-    // });
+    //
+    // })
+
 
 })
 

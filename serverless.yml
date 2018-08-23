@@ -23,7 +23,7 @@ provider:
         Resource:
           - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn" ] }
           - { "Fn::GetAtt": ["ConfiguioDynamoDBTable", "Arn" ] }
-          - { "Fn::GetAtt": ["S3BucketUpload", "Arn" ] }
+          - { "Fn::Join": ['', [Fn::GetAtt: [ "S3BucketUpload", "Arn"], '/*'] ] }
   environment:
     USERS_TABLE: ${self:custom.tableUserName}
     CONFIGUIO_TABLE: ${self:custom.tableConfiguioName}
