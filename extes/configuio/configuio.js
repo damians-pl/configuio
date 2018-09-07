@@ -1,44 +1,27 @@
 const serverless = require('serverless-http');
 const bodyParser = require('body-parser');
-const express = require('express')
-const app = express()
+const express = require('express');
+var path = require('path');
+const app = express();
 const AWS = require('aws-sdk');
 
 const uuid = require('uuid');
-var multer = require('multer')
+var multer = require('multer');
 var fs = require('fs');
-//var multerS3 = require('multer-s3')
+//var multerS3 = require('multer-s3');
 
 const CONFIGUIO_S3_UPLOAD = process.env.CONFIGUIO_S3_UPLOAD;
-const s3 = new AWS.S3({apiVersion: '2006-03-01'});
 const s3BucketUpload = new AWS.S3({params: {Bucket: CONFIGUIO_S3_UPLOAD}});
 
+const IS_OFFLINE = process.env.IS_OFFLINE;
 const CONFIGUIO_TABLE = process.env.CONFIGUIO_TABLE;
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
+let dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 app.use(bodyParser.json({ strict: false }));
 
+var project_list = require(__dirname + '/routes/project_list');
+app.use('/configuio/project/list', project_list);
 
-// Get Project List endpoint
-app.get('/configuio/project/list', function (req, res) {
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-    }
-
-    dynamoDb.scan(params, (error, result) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not get list users' });
-        }
-        if (result.Items) {
-            // const jsonResult = JSON.stringify(result.Items);
-            res.json(result.Items);
-        } else {
-            res.status(404).json({ error: "User not found" });
-        }
-    });
-})
 
 // Get Project by uuId endpoint
 app.get('/configuio/project/get/:uuId', function (req, res) {
