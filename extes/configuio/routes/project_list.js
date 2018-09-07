@@ -2,7 +2,7 @@ var express = require('express');
 var router = express.Router();
 var db = require('../db');
 
-// Get Project List endpoint
+
 router.get('/', function (req, res) {
     const params = {
         TableName: db.values.CONFIGUIO_TABLE,

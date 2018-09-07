@@ -5,7 +5,6 @@ var path = require('path');
 const app = express();
 const AWS = require('aws-sdk');
 
-const uuid = require('uuid');
 var multer = require('multer');
 var fs = require('fs');
 //var multerS3 = require('multer-s3');
@@ -22,170 +21,24 @@ app.use(bodyParser.json({ strict: false }));
 var project_list = require(__dirname + '/routes/project_list');
 app.use('/configuio/project/list', project_list);
 
+var project_get = require(__dirname + '/routes/project_get');
+app.use('/configuio/project/get', project_get);
 
-// Get Project by uuId endpoint
-app.get('/configuio/project/get/:uuId', function (req, res) {
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-    }
+var project_create = require(__dirname + '/routes/project_create');
+app.use('/configuio/project/create', project_create);
 
-    dynamoDb.get(params, (error, result) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not get project' });
-        }
-        if (result.Item) {
-            const db = result.Item;
-            res.json(db);
-        } else {
-            res.status(404).json({ error: "Project not found" });
-        }
-    });
-})
+var project_delete = require(__dirname + '/routes/project_delete');
+app.use('/configuio/project/delete', project_delete);
 
-// Delete User endpoint
-app.get('/configuio/project/delete/:uuId', function (req, res) {
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-    }
+var project_update = require(__dirname + '/routes/project_update');
+app.use('/configuio/project/update', project_update);
 
-    dynamoDb.delete(params, (error, result) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not delete user' });
-        }
+var project_setactive = require(__dirname + '/routes/project_setactive');
+app.use('/configuio/project/setActive', project_setactive);
 
-        res.json({uuId: req.params.uuId});
-    });
-})
+var project_setdeactive = require(__dirname + '/routes/project_setdeactive');
+app.use('/configuio/project/setDeactive', project_setdeactive);
 
-// Create Project endpoint
-app.post('/configuio/project/create', function (req, res) {
-    const timestamp = new Date().getTime();
-    const data = req.body;
-    const uuId = uuid.v1();
-
-    console.log("Pokaz data:");
-    console.log(data);
-
-    if (typeof data.projectName !== 'string') {
-        res.status(400).json({ error: '"projectName" must be a string' });
-    }
-
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-        Item: {
-            uuId: uuId,
-            projectName: data.projectName,
-            active: false,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-        },
-    };
-
-    dynamoDb.put(params, (error) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not create project' });
-        }
-        res.json({ uuId: uuId});
-    });
-})
-
-// Update Project endpoint
-app.post('/configuio/project/update/:uuId', function (req, res) {
-
-    const timestamp = new Date().getTime();
-    const data = req.body;
-
-    if (typeof data.projectName !== 'string') {
-        res.status(400).json({ error: '"projectName" must be a string' });
-    }
-
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-        ExpressionAttributeValues: {
-            ':projectName': data.projectName,
-            ':active': data.active || false,
-            ':updatedAt': timestamp,
-        },
-        UpdateExpression: 'SET projectName = :projectName, active = :active, updatedAt = :updatedAt',
-        ReturnValues: 'ALL_NEW',
-    };
-
-    dynamoDb.update(params, (error) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not update user' });
-        }
-        res.json({uuId: req.params.uuId});
-    });
-})
-
-// Active Project endpoint
-app.get('/configuio/project/setActive/:uuId', function (req, res) {
-
-    const timestamp = new Date().getTime();
-    const data = req.body;
-
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-        ExpressionAttributeValues: {
-            ':active': true,
-            ':updatedAt': timestamp,
-        },
-        UpdateExpression: 'SET active = :active, updatedAt = :updatedAt',
-        ReturnValues: 'ALL_NEW',
-    };
-
-    dynamoDb.update(params, (error) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not update project' });
-        }
-        res.json({uuId: req.params.uuId});
-    });
-})
-
-// DeActive Project endpoint
-app.get('/configuio/project/setDeactive/:uuId', function (req, res) {
-
-    const timestamp = new Date().getTime();
-    const data = req.body;
-
-    const params = {
-        TableName: CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-        ExpressionAttributeValues: {
-            ':active': false,
-            ':updatedAt': timestamp,
-        },
-        UpdateExpression: 'SET active = :active, updatedAt = :updatedAt',
-        ReturnValues: 'ALL_NEW',
-    };
-
-    dynamoDb.update(params, (error) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not update project' });
-        }
-        res.json({uuId: req.params.uuId});
-    });
-})
 
 // TEST
 app.get('/configuio/test', function (req, res) {
@@ -210,22 +63,6 @@ app.get('/configuio/test', function (req, res) {
         '</html>';
     res.send(html);
 })
-
-
-// var uploadImage1 = multer({
-//     storage: multerS3({
-//         s3: s3,
-//         bucket: 'configuio-upload-dev',
-//         acl: 'public-read',
-//         contentType: multerS3.AUTO_CONTENT_TYPE,
-//         // metadata: function (req, file, cb) {
-//         //     cb(null, {fieldName: file.fieldname});
-//         // },
-//         key: function (req, file, cb) {
-//             cb(null, Date.now().toString())
-//         }
-//     })
-// });
 
 
 function uploadToS3(file, destFileName, callback) {
@@ -276,17 +113,6 @@ app.post('/configuio/project/uploadImage1/:uuId', uploadImage1, function (req, r
             .end();
     })
 
-
-    //////////
-    // upload(req, res, function (err) {
-    //     if (err) {
-    //         console.error(err);
-    //         return res.status(500).send('failed to upload to s3').end();
-    //     }
-    //
-
-    //
-    // })
 
 
 })
