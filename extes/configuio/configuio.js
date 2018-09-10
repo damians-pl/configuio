@@ -39,8 +39,15 @@ app.use('/configuio/project/setActive', project_setactive);
 var project_setdeactive = require(__dirname + '/routes/project_setdeactive');
 app.use('/configuio/project/setDeactive', project_setdeactive);
 
+
 var project_setcoverimage = require(__dirname + '/routes/project_setcoverimage');
 app.use('/configuio/project/setCoverImage', project_setcoverimage);
+
+var project_getcoverimage = require(__dirname + '/routes/project_getcoverimage');
+app.use('/configuio/project/getCoverImage', project_getcoverimage);
+
+var project_deletecoverimage = require(__dirname + '/routes/project_deletecoverimage');
+app.use('/configuio/project/deleteCoverImage', project_deletecoverimage);
 
 // TEST
 // app.get('/configuio/test', function (req, res) {
