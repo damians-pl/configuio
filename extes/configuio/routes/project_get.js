@@ -1,27 +1,17 @@
-var express = require('express');
-var router = express.Router();
-var db = require('../db');
+const express = require('express');
+const router = express.Router();
+const project = require('../class_project');
 
 // Get Project List endpoint
 router.get('/:uuId', function (req, res) {
-    const params = {
-        TableName: db.values.CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-    }
+    var item = new project.Project();
+    item.load(req.params.uuId, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( err.message ) ;
+        }
 
-    db.dynamoDb.get(params, (error, result) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not get project' });
-        }
-        if (result.Item) {
-            const db = result.Item;
-            res.json(db);
-        } else {
-            res.status(404).json({ error: "Project not found" });
-        }
+        res.json(data);
     });
 
 });

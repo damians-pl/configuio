@@ -1,8 +1,10 @@
 var express = require('express');
 const AWS = require('aws-sdk');
-// const uuid = require('uuid');
-var dynamoose = require('dynamoose');
+const uuid = require('uuid');
+// var dynamoose = require('dynamoose');
 let dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+// dynamoose.setDefaults( { create: false });
 
 module.exports = {};
 module.exports.values = {
@@ -11,6 +13,4 @@ module.exports.values = {
 };
 module.exports.dynamoDb = dynamoDb;
 
-module.exports.init = function(){
-
-};
+module.exports.init = function(){ };

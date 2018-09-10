@@ -1,12 +1,12 @@
 const serverless = require('serverless-http');
 const bodyParser = require('body-parser');
 const express = require('express');
-var path = require('path');
 const app = express();
-const AWS = require('aws-sdk');
+// var path = require('path');
+// const AWS = require('aws-sdk');
 
-var multer = require('multer');
-var fs = require('fs');
+// var multer = require('multer');
+// var fs = require('fs');
 //var multerS3 = require('multer-s3');
 
 // const CONFIGUIO_S3_UPLOAD = process.env.CONFIGUIO_S3_UPLOAD;
