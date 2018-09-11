@@ -217,7 +217,7 @@ var Project = class Project {
     getListProject(arg, callback){
         const params = {
             TableName: db.values.CONFIGUIO_TABLE,
-        }
+        };
 
         db.dynamoDb.scan(params, (error, result) => {
             if (error) callback( error );

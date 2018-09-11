@@ -2,7 +2,6 @@ var express = require('express');
 var router = express.Router();
 const project = require('../class_project');
 
-// Get Project List endpoint
 router.post('/', function (req, res) {
     const data = req.body;
     const project_item = new project.Project();
@@ -20,11 +19,6 @@ router.post('/', function (req, res) {
         }
         res.json(data);
     });
-
-
-
-
-
 });
 
 module.exports = router;

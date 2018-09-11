@@ -23,10 +23,7 @@ router.get('/:uuId', function (req, res) {
 
             res.json(data);
         });
-
     });
-
-
 });
 
 module.exports = router;

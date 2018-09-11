@@ -12,10 +12,8 @@ router.get('/:uuId', function (req, res) {
             return res.status(400).json( {"error": err.message} ) ;
         }
 
-
         res.json(project_item.getProject());
     });
-
 });
 
 module.exports = router;

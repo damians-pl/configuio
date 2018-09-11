@@ -8,8 +8,6 @@ router.post('/:uuId', function (req, res) {
     const project_item = new project.Project();
     project_item.uuIdCurrent = req.params.uuId;
 
-
-
     project_item.loadProject(null, function (err, data) {
         if (err) {
             console.log(err);
@@ -23,7 +21,6 @@ router.post('/:uuId', function (req, res) {
 
         project_item.project = { "projectName":data_post.projectName };
 
-
         project_item.updateProject(null, function (err, data) {
             if (err) {
                 console.log(err);
@@ -31,13 +28,7 @@ router.post('/:uuId', function (req, res) {
             }
             res.json(data);
         });
-
-        // res.json(project_item.getProject());
     });
-
-
-
-
 });
 
 module.exports = router;

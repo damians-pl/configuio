@@ -2,52 +2,282 @@ const serverless = require('serverless-http');
 const bodyParser = require('body-parser');
 const express = require('express');
 const app = express();
-// var path = require('path');
-// const AWS = require('aws-sdk');
+const multer = require('multer');
 
-// var multer = require('multer');
-// var fs = require('fs');
-//var multerS3 = require('multer-s3');
+const project = require('./class_project');
+const s3 = require('./s3');
+const db = require('./db');
 
-// const CONFIGUIO_S3_UPLOAD = process.env.CONFIGUIO_S3_UPLOAD;
-// const s3BucketUpload = new AWS.S3({params: {Bucket: CONFIGUIO_S3_UPLOAD}});
-//
-// const IS_OFFLINE = process.env.IS_OFFLINE;
-// const CONFIGUIO_TABLE = process.env.CONFIGUIO_TABLE;
-// let dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 app.use(bodyParser.json({ strict: false }));
 
-var project_list = require(__dirname + '/routes/project_list');
-app.use('/configuio/project/list', project_list);
+app.get('/configuio/project/list/', function (req, res) {
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+    project_item.getListProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
 
-var project_get = require(__dirname + '/routes/project_get');
-app.use('/configuio/project/get', project_get);
+        res.json(data);
+    });
+});
 
-var project_create = require(__dirname + '/routes/project_create');
-app.use('/configuio/project/create', project_create);
+app.get('/configuio/project/get/:uuId', function (req, res) {
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
 
-var project_delete = require(__dirname + '/routes/project_delete');
-app.use('/configuio/project/delete', project_delete);
+        res.json(project_item.getProject());
+    });
+});
 
-var project_update = require(__dirname + '/routes/project_update');
-app.use('/configuio/project/update', project_update);
+app.post('/configuio/project/create/', function (req, res) {
+    const data = req.body;
+    const project_item = new project.Project();
 
-var project_setactive = require(__dirname + '/routes/project_setactive');
-app.use('/configuio/project/setActive', project_setactive);
+    if (typeof data.projectName !== 'string') {
+        res.status(400).json({ error: '"projectName" must be a string' });
+        return;
+    }
+    project_item.project = { "projectName":data.projectName };
 
-var project_setdeactive = require(__dirname + '/routes/project_setdeactive');
-app.use('/configuio/project/setDeactive', project_setdeactive);
+    project_item.putProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+        res.json(data);
+    });
+});
+
+app.get('/configuio/project/delete/:uuId', function (req, res) {
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+    project_item.deleteProjectFromDB(req.params.uuId, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+        res.json(data);
+    });
+
+});
+
+app.post('/configuio/project/update/:uuId', function (req, res) {
+    const data_post = req.body;
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+
+        if (typeof data_post.projectName !== 'string') {
+            res.status(400).json({ "error": '"projectName" must be a string' });
+            return;
+        }
+
+        project_item.project = { "projectName":data_post.projectName };
+
+        project_item.updateProject(null, function (err, data) {
+            if (err) {
+                console.log(err);
+                return res.status(400).json( {"error": err.message} ) ;
+            }
+            res.json(data);
+        });
+    });
+});
+
+app.get('/configuio/project/setActive/:uuId', function (req, res) {
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+
+        project_item.project = { "active": true };
+
+        project_item.updateProject(null, function (err, data) {
+            if (err) {
+                console.log(err);
+                return res.status(400).json( {"error": err.message} ) ;
+            }
+
+            res.json(data);
+        });
+    });
+});
+
+app.get('/configuio/project/setDeactive/:uuId', function (req, res) {
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+
+        project_item.project = { "active": false };
+
+        project_item.updateProject(null, function (err, data) {
+            if (err) {
+                console.log(err);
+                return res.status(400).json( {"error": err.message} ) ;
+            }
+
+            res.json(data);
+        });
+    });
+});
+
+app.post('/configuio/project/setCoverImage/:uuId', multer({limits: {fileSize:10*1024*1024}}).single("image"), function (req, res) {
+    const uuId = req.params.uuId;
+
+    const fileNameUpload = req.file;
+    const dirBucketSave = "uploads/configuio/"+uuId+"/project/";
+    const fileNameBucketSave = "coverImage." + getExt(fileNameUpload.originalname);
+    const fileUploadAll = dirBucketSave + fileNameBucketSave;
+    // var pid = '10000' + parseInt(Math.random() * 10000000);
+
+    // console.log(req.file);
+
+    if (!fileNameUpload) {
+        return res.status(400).json({ error: 'expect 1 file upload named "image"'});
+    }
+
+    if (!/^image\/(jpe?g|png)$/i.test(fileNameUpload.mimetype)) {
+        return res.status(400).json({ error: 'expect image file'});
+    }
+
+    function getExt(filename){
+        return filename.substring(filename.lastIndexOf('.')+1, filename.length) || filename;
+    }
+
+    function uploadToS3(file, destFileName, mimetype, callback) {
+        s3.s3BucketUpload
+            .upload({
+                ACL: 'public-read',
+                Body: file.buffer,
+                Key: destFileName.toString(),
+                // ContentType: 'application/octet-stream'
+                ContentType: mimetype
+            })
+            // .on('httpUploadProgress', function(evt) { console.log(evt); })
+            .send(callback);
+    }
 
 
-var project_setcoverimage = require(__dirname + '/routes/project_setcoverimage');
-app.use('/configuio/project/setCoverImage', project_setcoverimage);
+    uploadToS3(fileNameUpload, fileUploadAll, fileNameUpload.mimetype, function (err, data) {
+        if (err) {
+            console.error(err);
+            return res.status(401).json({ error: 'failed to upload' + err});
+        }
+        const data_uploaded = data;
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = req.params.uuId;
+        project_item.project = { "uuId": project_item.uuIdCurrent, "fileCover": fileUploadAll.toString() };
+        project_item.updateCoverImageProject(null, function (err, data) {
+            if (err) {
+                console.log(err);
+                return res.status(400).json( {"error": err.message} ) ;
+            }
+            res.status(200).json({ uuId: project_item.uuIdCurrent, url: data_uploaded.Location});
+        });
 
-var project_getcoverimage = require(__dirname + '/routes/project_getcoverimage');
-app.use('/configuio/project/getCoverImage', project_getcoverimage);
 
-var project_deletecoverimage = require(__dirname + '/routes/project_deletecoverimage');
-app.use('/configuio/project/deleteCoverImage', project_deletecoverimage);
+    });
+
+});
+
+app.get('/configuio/project/getCoverImage/:uuId', function (req, res) {
+    const uuId = req.params.uuId;
+
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = uuId;
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+
+        let db_item = project_item.getProject();
+        if (db_item.fileCover == null) {
+            return res.status(401).json({ error: 'No file uploaded' });
+        }
+
+        s3.getFileHead(db_item.fileCover, function (err, data) {
+            const dataHeadFile = data;
+            if(err && dataHeadFile.ContentLength > 0){
+                return res.status(402).json({ error: 'Could not get file from disk' });
+
+            }else{
+                s3.getURLBucket(function (err, data) {
+                    return res.json({
+                        "uuId": project_item.uuIdCurrent,
+                        "URL": data + db_item.fileCover,
+                        "LastModified": dataHeadFile.LastModified
+                    });
+                })
+
+            }
+        });
+
+    });
+
+
+});
+
+app.get('/configuio/project/deleteCoverImage/:uuId', function (req, res) {
+    const uuId = req.params.uuId;
+
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = uuId;
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
+        }
+
+        let db_item = project_item.getProject();
+        if (db_item.fileCover == null) {
+            return res.status(401).json({ error: 'No file uploaded' });
+        }
+
+        s3.deleteFile(db_item.fileCover, function (err) {
+            if(err){
+                console.log(err);
+                return res.status(402).json({ error: 'Could not finish operation' });
+            }else{
+                project_item.project = { "uuId": project_item.uuIdCurrent, "fileCover": null };
+
+                project_item.updateCoverImageProject(null, function (err, data) {
+                    if (err) {
+                        console.log(err);
+                        return res.status(403).json( {"error": err.message} ) ;
+                    }
+                    res.json(data);
+                });
+
+            }
+        });
+
+    });
+
+
+});
 
 // TEST
 // app.get('/configuio/test', function (req, res) {
