@@ -39,17 +39,24 @@ functions:
           method: ANY
           cors: true
   user:
-    handler: extes/user/user.handler
+    handler: functions/user/user.handler
     events:
       - http:
           path: user/{proxy+}
           method: ANY
           cors: true
-  configuio:
-    handler: extes/configuio/configuio.handler
+  configuio_project:
+    handler: functions/configuio/routes_project.handler
     events:
       - http:
-          path: configuio/{proxy+}
+          path: configuio/project/{proxy+}
+          method: ANY
+          cors: true
+  configuio_project_upload:
+    handler: functions/configuio/routes_project_upload.handler
+    events:
+      - http:
+          path: configuio/upload/project/{proxy+}
           method: ANY
           cors: true
 
