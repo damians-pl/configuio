@@ -1,6 +1,6 @@
 const express = require('express');
 const _ = require('underscore');
-// const uuid = require('uuid');
+const uuid = require('uuid');
 const db = require('./db');
 // const s3 = require('./s3');
 
@@ -30,6 +30,10 @@ var Project = class Project {
         this._project = _.extend(this._project, value);
     }
 
+    getProject(uuId){
+        return this.project;
+    }
+
     constructor() {
         //Default schemat
         this.project_default = {
@@ -45,7 +49,18 @@ var Project = class Project {
         this._uuIdCurrent = null;
     }
 
-    load(arg, callback){
+    nowTimeUpdate(){
+        const timestamp = new Date().getTime();
+        this.project = {"updatedAt": timestamp};
+    }
+
+    nowTimeCreate(){
+        const timestamp = new Date().getTime();
+        this.project = {"createdAt": timestamp};
+    }
+
+
+    loadProject(arg, callback){
         let self = this;
         this.getProjectFromDB(this.uuIdCurrent, function(err, data){
             if(err){
@@ -60,9 +75,75 @@ var Project = class Project {
 
     }
 
-    getProject(uuId){
-        return this.project;
+    putProject(arg, callback){
+
+        if( this.uuIdCurrent === null && this.project.uuId === null){
+            // Nowy dodajemy
+            const uuId = uuid.v1();
+
+            this.nowTimeCreate();
+            this.nowTimeUpdate();
+            this.project = {"uuId": uuId};
+
+            console.log("Nowy");
+            console.log(this.project);
+
+            const params = {
+                TableName: db.values.CONFIGUIO_TABLE,
+                Item: this.project,
+            };
+
+            db.dynamoDb.put(params, (error) => {
+                if (error) callback( error );
+                else {
+                    this.uuIdCurrent = uuId;
+                    callback(null, uuId);
+                    return uuId;
+                }
+            });
+
+        }else{
+            callback( new Error("Can't create project") );
+        }
+
     }
+
+    updateProject(arg, callback){
+
+        if( this.uuIdCurrent ==  this.project.uuId ){
+            // Update
+            this.nowTimeUpdate();
+            console.log("Update");
+            console.log(this.project);
+
+            const params = {
+                TableName: db.values.CONFIGUIO_TABLE,
+                Key: {
+                    uuId: this.uuIdCurrent,
+                },
+                ExpressionAttributeValues: {
+                    ':projectName': this.project.projectName,
+                    ':active': this.project.active || false,
+                    ':updatedAt': this.project.updatedAt
+                },
+                UpdateExpression: 'SET projectName = :projectName, active = :active, updatedAt = :updatedAt',
+                ReturnValues: 'ALL_NEW',
+            };
+
+            db.dynamoDb.update(params, (error) => {
+                if (error) callback( error );
+                else {
+                    callback(null, this.uuIdCurrent);
+                    return this.uuIdCurrent;
+                }
+
+            });
+        }else{
+            callback( new Error("Can't update project") );
+        }
+
+    }
+    
 
     deleteProjectFromDB(arg, callback){
 
@@ -111,7 +192,6 @@ var Project = class Project {
         }
 
         db.dynamoDb.scan(params, (error, result) => {
-            console.log(result);
             if (error) callback( error );
             else if (_.isObject(result.Items) === false) callback( new Error ("You don't have projects") );
             else {

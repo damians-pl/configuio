@@ -1,29 +1,29 @@
 var express = require('express');
 var router = express.Router();
-var db = require('../db');
+const project = require('../class_project');
 
-// Get Project List endpoint
+
 router.get('/:uuId', function (req, res) {
-    const timestamp = new Date().getTime();
-    const params = {
-        TableName: db.values.CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-        ExpressionAttributeValues: {
-            ':active': false,
-            ':updatedAt': timestamp,
-        },
-        UpdateExpression: 'SET active = :active, updatedAt = :updatedAt',
-        ReturnValues: 'ALL_NEW',
-    };
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
 
-    db.dynamoDb.update(params, (error) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not update project' });
+    project_item.loadProject(null, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
         }
-        res.json({uuId: req.params.uuId});
+
+        project_item.project = { "active": false };
+
+        project_item.updateProject(null, function (err, data) {
+            if (err) {
+                console.log(err);
+                return res.status(400).json( {"error": err.message} ) ;
+            }
+
+            res.json(data);
+        });
+
     });
 
 
