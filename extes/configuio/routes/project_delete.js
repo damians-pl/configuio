@@ -1,23 +1,19 @@
-var express = require('express');
-var router = express.Router();
-var db = require('../db');
+const express = require('express');
+const router = express.Router();
+const project = require('../class_project');
 
-// Get Project List endpoint
+
 router.get('/:uuId', function (req, res) {
-    const params = {
-        TableName: db.values.CONFIGUIO_TABLE,
-        Key: {
-            uuId: req.params.uuId,
-        },
-    }
-
-    db.dynamoDb.delete(params, (error, result) => {
-        if (error) {
-            console.log(error);
-            res.status(400).json({ error: 'Could not delete user' });
+    const project_item = new project.Project();
+    project_item.uuIdCurrent = req.params.uuId;
+    project_item.deleteProjectFromDB(req.params.uuId, function (err, data) {
+        if (err) {
+            console.log(err);
+            return res.status(400).json( {"error": err.message} ) ;
         }
 
-        res.json({uuId: req.params.uuId});
+
+        res.json(data);
     });
 
 });
