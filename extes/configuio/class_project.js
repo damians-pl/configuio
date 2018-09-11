@@ -85,9 +85,6 @@ var Project = class Project {
             this.nowTimeUpdate();
             this.project = {"uuId": uuId};
 
-            console.log("Nowy");
-            console.log(this.project);
-
             const params = {
                 TableName: db.values.CONFIGUIO_TABLE,
                 Item: this.project,
@@ -113,8 +110,6 @@ var Project = class Project {
         if( this.uuIdCurrent ==  this.project.uuId ){
             // Update
             this.nowTimeUpdate();
-            console.log("Update");
-            console.log(this.project);
 
             const params = {
                 TableName: db.values.CONFIGUIO_TABLE,
@@ -143,7 +138,40 @@ var Project = class Project {
         }
 
     }
-    
+
+    updateCoverImageProject(arg, callback){
+
+        if( this.uuIdCurrent !==  null ){
+            // Update
+            this.nowTimeUpdate();
+
+            const params = {
+                TableName: db.values.CONFIGUIO_TABLE,
+                Key: {
+                    uuId: this.uuIdCurrent,
+                },
+                ExpressionAttributeValues: {
+                    ':fileCover': this.project.fileCover,
+                    ':updatedAt': this.project.updatedAt
+                },
+                UpdateExpression: 'SET fileCover = :fileCover, updatedAt = :updatedAt',
+                ReturnValues: 'ALL_NEW',
+            };
+
+            db.dynamoDb.update(params, (error) => {
+                if (error) callback( error );
+                else {
+                    callback(null, this.uuIdCurrent);
+                    return this.uuIdCurrent;
+                }
+
+            });
+        }else{
+            callback( new Error("Can't update") );
+        }
+
+    }
+
 
     deleteProjectFromDB(arg, callback){
 
