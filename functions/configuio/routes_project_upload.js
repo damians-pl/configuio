@@ -7,6 +7,10 @@ const multer = require('multer');
 const project = require('./class_project');
 const s3 = require('./s3');
 
+const asyncHandler = fn => (req, res, next) =>
+    Promise
+        .resolve(fn(req, res, next))
+        .catch(next);
 
 app.use(bodyParser.json({ strict: false }));
 
@@ -48,128 +52,82 @@ app.post('/configuio/upload/project/setCoverImage/:uuId', multer({limits: {fileS
     }
 
 
-    uploadToS3(fileNameUpload, fileUploadAll, fileNameUpload.mimetype, function (err, data) {
+    uploadToS3(fileNameUpload, fileUploadAll, fileNameUpload.mimetype, async function (err, data) {
         if (err) {
             console.error(err);
             return res.status(401).json({ error: 'failed to upload' + err});
         }
-        const data_uploaded = data;
-        const project_item = new project.Project();
-        project_item.uuIdCurrent = req.params.uuId;
-        project_item.project = { "uuId": project_item.uuIdCurrent, "fileCover": fileUploadAll.toString() };
-        project_item.updateCoverImageProject(null, function (err, data) {
-            if (err) {
-                console.log(err);
-                return res.status(400).json( {"error": err.message} ) ;
-            }
+
+        try {
+            const data_uploaded = data;
+            const project_item = new project.Project();
+            project_item.uuIdCurrent = req.params.uuId;
+            project_item.project = { "fileCover": fileUploadAll.toString() };
+
+            const result = await project_item.updateCoverImageProject();
             res.status(200).json({ uuId: project_item.uuIdCurrent, url: data_uploaded.Location});
-        });
-
-
+        }catch (e) {
+            console.log(e);
+            return res.status(400).json( {"error": e.message} ) ;
+        }
     });
 
 });
 
-app.get('/configuio/upload/project/getCoverImage/:uuId', function (req, res) {
+app.get('/configuio/upload/project/getCoverImage/:uuId', asyncHandler( async function (req, res) {
     const uuId = req.params.uuId;
 
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = uuId;
-    project_item.loadProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
+    try {
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = uuId;
 
-        let db_item = project_item.getProject();
-        if (db_item.fileCover == null) {
-            return res.status(401).json({ error: 'No file uploaded' });
-        }
+        await project_item.loadProject();
+        if ( project_item.project.fileCover == null ) throw new Error("No file uploaded");
 
-        s3.getFileHead(db_item.fileCover, function (err, data) {
-            const dataHeadFile = data;
-            if(err && dataHeadFile.ContentLength > 0){
-                return res.status(402).json({ error: 'Could not get file from disk' });
+        const dataHeadFile = await s3.getFileHead(project_item.project.fileCover);
+        if (!(dataHeadFile.ContentLength > 0)) throw new Error('Could not get file from disk');
 
-            }else{
-                s3.getURLBucket(function (err, data) {
-                    return res.json({
-                        "uuId": project_item.uuIdCurrent,
-                        "URL": data + db_item.fileCover,
-                        "LastModified": dataHeadFile.LastModified
-                    });
-                })
+        const dataURL = await s3.getURLBucket();
 
-            }
+        return res.json({
+            "uuId": uuId,
+            "URL": dataURL + project_item.project.fileCover,
+            "LastModified": dataHeadFile.LastModified
         });
 
-    });
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
 
+}));
 
-});
-
-app.get('/configuio/upload/project/deleteCoverImage/:uuId', function (req, res) {
+app.get('/configuio/upload/project/deleteCoverImage/:uuId', asyncHandler( async function (req, res) {
     const uuId = req.params.uuId;
 
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = uuId;
-    project_item.loadProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
+    try {
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = uuId;
 
-        let db_item = project_item.getProject();
-        if (db_item.fileCover == null) {
-            return res.status(401).json({ error: 'No file uploaded' });
-        }
+        await project_item.loadProject();
+        if ( project_item.project.fileCover == null ) throw new Error("No file uploaded");
 
-        s3.deleteFile(db_item.fileCover, function (err) {
-            if(err){
-                console.log(err);
-                return res.status(402).json({ error: 'Could not finish operation' });
-            }else{
-                project_item.project = { "uuId": project_item.uuIdCurrent, "fileCover": null };
+        const dataHeadFile = await s3.getFileHead(project_item.project.fileCover);
+        if (!(dataHeadFile.ContentLength > 0)) throw new Error('Could not get file from disk');
 
-                project_item.updateCoverImageProject(null, function (err, data) {
-                    if (err) {
-                        console.log(err);
-                        return res.status(403).json( {"error": err.message} ) ;
-                    }
-                    res.json(data);
-                });
+        await s3.deleteFile(project_item.project.fileCover);
 
-            }
-        });
+        project_item.project = { "fileCover": null };
+        await project_item.updateCoverImageProject();
 
-    });
+        res.json( {"success": true} );
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
 
+}));
 
-});
-
-// TEST
-// app.get('/configuio/test', function (req, res) {
-//     var html = '<!DOCTYPE html>\n' +
-//         '<html lang="en">\n' +
-//         '<head>\n' +
-//         '  <meta charset="UTF-8">\n' +
-//         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-//         '  <meta http-equiv="X-UA-Compatible" content="ie=edge">\n' +
-//         '  <title>S3 Demo</title>\n' +
-//         '</head>\n' +
-//         '<body>\n' +
-//         '  <p>Upload file to S3</p>\n' +
-//         '  <form action="/dev/configuio/project/uploadImage1/71f0a240-a620-11e8-b0d4-1bb54381c7f9" method="POST" enctype="multipart/form-data">\n' +
-//         '    <fieldset>\n' +
-//         '      <legend>Upload file</legend>\n' +
-//         '      <input type="file" name="image">\n' +
-//         '      <input type="submit">\n' +
-//         '    </fieldset>\n' +
-//         '  </form>\n' +
-//         '</body>\n' +
-//         '</html>';
-//     res.send(html);
-// })
 
 
 module.exports.handler = serverless(app);

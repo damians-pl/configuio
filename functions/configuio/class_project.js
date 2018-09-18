@@ -26,7 +26,7 @@ var Project = class Project {
     }
 
     set project(value) {
-        if(typeof value !== 'object') return new Error({ error: '"uuId" must be a string' });
+        if(typeof value !== 'object') return new Error("Error in seter project");
         this._project = _.extend(this._project, value);
     }
 
@@ -60,121 +60,87 @@ var Project = class Project {
     }
 
 
-    loadProject(arg, callback){
+    async loadProject(arg, callback){
         let self = this;
-        this.getProjectFromDB(this.uuIdCurrent, function(err, data){
-            if(err){
-                callback(err);
-                return ;
-            }
 
-            self.project = data;
+        if(this.uuIdCurrent == null) throw new Error("No selected uuid project");
 
-            callback(null, true);
-        });
-
+        let result = await this.getProjectFromDB(this.uuIdCurrent);
+        self.project = result;
+        return true;
     }
 
-    putProject(arg, callback){
+    async putProject(arg, callback){
 
-        if( this.uuIdCurrent === null && this.project.uuId === null){
-            // Nowy dodajemy
-            const uuId = uuid.v1();
+        if ( this.uuIdCurrent !== null ) throw new Error("Allready selected uuid project");
+        if ( this.project.uuId !== null ) throw new Error("Allready loaded project in stock");
 
-            this.nowTimeCreate();
-            this.nowTimeUpdate();
-            this.project = {"uuId": uuId};
+        const uuId = uuid.v1();
+        this.nowTimeCreate();
+        this.nowTimeUpdate();
+        this.project = {"uuId": uuId};
 
-            const params = {
-                TableName: db.values.CONFIGUIO_TABLE,
-                Item: this.project,
-            };
+        const params = {
+            TableName: db.values.CONFIGUIO_TABLE,
+            Item: this.project,
+        };
 
-            db.dynamoDb.put(params, (error) => {
-                if (error) callback( error );
-                else {
-                    this.uuIdCurrent = uuId;
-                    callback(null, uuId);
-                    return uuId;
-                }
-            });
 
-        }else{
-            callback( new Error("Can't create project") );
-        }
+        let result = await db.dynamoDb.put(params).promise();
 
+        this.uuIdCurrent = uuId;
+        return uuId;
     }
 
-    updateProject(arg, callback){
+    async updateProject(arg, callback){
+        if ( this.uuIdCurrent === null ) throw new Error("No selected uuid project");
+        if ( this.project.uuId === null ) throw new Error("No loaded project in stock");
+        if( this.uuIdCurrent !==  this.project.uuId ) throw new Error("uuId's no =");
 
-        if( this.uuIdCurrent ==  this.project.uuId ){
-            // Update
-            this.nowTimeUpdate();
+        this.nowTimeUpdate();
+        const params = {
+            TableName: db.values.CONFIGUIO_TABLE,
+            Key: {
+                uuId: this.uuIdCurrent,
+            },
+            ExpressionAttributeValues: {
+                ':projectName': this.project.projectName,
+                ':active': this.project.active || false,
+                ':updatedAt': this.project.updatedAt
+            },
+            UpdateExpression: 'SET projectName = :projectName, active = :active, updatedAt = :updatedAt',
+            ReturnValues: 'ALL_NEW',
+        };
 
-            const params = {
-                TableName: db.values.CONFIGUIO_TABLE,
-                Key: {
-                    uuId: this.uuIdCurrent,
-                },
-                ExpressionAttributeValues: {
-                    ':projectName': this.project.projectName,
-                    ':active': this.project.active || false,
-                    ':updatedAt': this.project.updatedAt
-                },
-                UpdateExpression: 'SET projectName = :projectName, active = :active, updatedAt = :updatedAt',
-                ReturnValues: 'ALL_NEW',
-            };
-
-            db.dynamoDb.update(params, (error) => {
-                if (error) callback( error );
-                else {
-                    callback(null, this.uuIdCurrent);
-                    return this.uuIdCurrent;
-                }
-
-            });
-        }else{
-            callback( new Error("Can't update project") );
-        }
-
+        let result = await db.dynamoDb.update(params).promise();
+        return this.uuIdCurrent;
     }
 
-    updateCoverImageProject(arg, callback){
+    async updateCoverImageProject(arg, callback){
+        if ( this.uuIdCurrent === null ) throw new Error("No selected uuid project");
 
-        if( this.uuIdCurrent !==  null ){
-            // Update
-            this.nowTimeUpdate();
+        this.nowTimeUpdate();
+        const params = {
+            TableName: db.values.CONFIGUIO_TABLE,
+            Key: {
+                uuId: this.uuIdCurrent,
+            },
+            ExpressionAttributeValues: {
+                ':fileCover': this.project.fileCover,
+                ':updatedAt': this.project.updatedAt
+            },
+            UpdateExpression: 'SET fileCover = :fileCover, updatedAt = :updatedAt',
+            ReturnValues: 'ALL_NEW',
+        };
 
-            const params = {
-                TableName: db.values.CONFIGUIO_TABLE,
-                Key: {
-                    uuId: this.uuIdCurrent,
-                },
-                ExpressionAttributeValues: {
-                    ':fileCover': this.project.fileCover,
-                    ':updatedAt': this.project.updatedAt
-                },
-                UpdateExpression: 'SET fileCover = :fileCover, updatedAt = :updatedAt',
-                ReturnValues: 'ALL_NEW',
-            };
+        let result = await db.dynamoDb.update(params).promise();
 
-            db.dynamoDb.update(params, (error) => {
-                if (error) callback( error );
-                else {
-                    callback(null, this.uuIdCurrent);
-                    return this.uuIdCurrent;
-                }
-
-            });
-        }else{
-            callback( new Error("Can't update") );
-        }
-
+        return this.uuIdCurrent;
     }
 
 
-    deleteProjectFromDB(arg, callback){
-
+    async deleteProjectFromDB(arg, callback){
+        if(this.uuIdCurrent == null) throw new Error("No selected uuid project");
 
         const params = {
             TableName: db.values.CONFIGUIO_TABLE,
@@ -183,19 +149,15 @@ var Project = class Project {
             },
         };
 
-        db.dynamoDb.delete(params, (error, result) => {
-            if (error) callback( error );
-            else {
-                this._project = this.project_default;
-                this._uuIdCurrent = null;
+        let result = await db.dynamoDb.delete(params).promise();
+        this._project = this.project_default;
+        this._uuIdCurrent = null;
 
-                callback(null, {"Success": true});
-                return result.Item;
-            }
-        });
+        return true;
     };
 
-    getProjectFromDB(arg, callback){
+    async getProjectFromDB(arg, callback){
+        if(this.uuIdCurrent == null) throw new Error("No selected uuid project");
 
         const params = {
             TableName: db.values.CONFIGUIO_TABLE,
@@ -204,31 +166,22 @@ var Project = class Project {
             },
         };
 
-        db.dynamoDb.get(params, (error, result) => {
-            if (error) callback( error );
-            else if (_.isObject(result.Item) === false) callback( new Error ("Project not found") );
-            else {
-                callback(null, result.Item);
-                return result.Item;
-            }
-        });
+        let result = await db.dynamoDb.get(params).promise();
+
+        if (_.isObject(result.Item) === false) throw new Error ("Project not found");
+        return result.Item;
+
     };
 
-    getListProject(arg, callback){
+    async getListProject(arg, callback){
         const params = {
             TableName: db.values.CONFIGUIO_TABLE,
         };
 
-        db.dynamoDb.scan(params, (error, result) => {
-            if (error) callback( error );
-            else if (_.isObject(result.Items) === false) callback( new Error ("You don't have projects") );
-            else {
-                callback(null, result.Items);
-                return result.Items;
-            }
+        let result = await db.dynamoDb.scan(params).promise();
 
-        });
-
+        if (_.isObject(result.Items) === false) throw new Error ("You don't have projects");
+        return result.Items;
     }
 
 

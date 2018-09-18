@@ -2,145 +2,148 @@ const serverless = require('serverless-http');
 const bodyParser = require('body-parser');
 const express = require('express');
 const app = express();
-const multer = require('multer');
+// const multer = require('multer');
 
 const project = require('./class_project');
 
-
+const asyncHandler = fn => (req, res, next) =>
+    Promise
+        .resolve(fn(req, res, next))
+        .catch(next);
 
 app.use(bodyParser.json({ strict: false }));
 
-app.get('/configuio/project/list/', function (req, res) {
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = req.params.uuId;
-    project_item.getListProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
+app.get('/configuio/project/list/', asyncHandler( async function (req, res) {
 
+    try {
+        const project_item = new project.Project();
+        let data = await project_item.getListProject();
         res.json(data);
-    });
-});
-
-app.get('/configuio/project/get/:uuId', function (req, res) {
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = req.params.uuId;
-    project_item.loadProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
-
-        res.json(project_item.getProject());
-    });
-});
-
-app.post('/configuio/project/create/', function (req, res) {
-    const data = req.body;
-    const project_item = new project.Project();
-
-    if (typeof data.projectName !== 'string') {
-        res.status(400).json({ error: '"projectName" must be a string' });
-        return;
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
     }
-    project_item.project = { "projectName":data.projectName };
 
-    project_item.putProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
+    // project_item.getListProject(null, function (err, data) {
+    //     if (err) {
+    //         console.log(err);
+    //         return res.status(400).json( {"error": err.message} ) ;
+    //     }
+    //
+    //     res.writeHead(200, {
+    //         'Content-Type': 'text/plain',
+    //         'Access-Control-Allow-Origin': '*',
+    //         'Access-Control-Allow-Credentials': true
+    //     }).json(data);
+    // });
+}));
+
+app.get('/configuio/project/get/:uuId', asyncHandler( async function (req, res) {
+
+    try {
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = req.params.uuId;
+
+        await project_item.loadProject();
+        const result = project_item.getProject();
+        res.json(result);
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
+
+}));
+
+app.post('/configuio/project/create/', asyncHandler( async function (req, res) {
+    try {
+        const data = req.body;
+        const project_item = new project.Project();
+
+        if (typeof data.projectName !== 'string') {
+            res.status(400).json({ error: '"projectName" must be a string' });
+            return;
         }
-        res.json(data);
-    });
-});
+        project_item.project = { "projectName": data.projectName };
 
-app.get('/configuio/project/delete/:uuId', function (req, res) {
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = req.params.uuId;
-    project_item.deleteProjectFromDB(req.params.uuId, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
-        res.json(data);
-    });
 
-});
+        const result = await project_item.putProject();
+        res.json( {"success": true, "data": result} );
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
+}));
 
-app.post('/configuio/project/update/:uuId', function (req, res) {
-    const data_post = req.body;
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = req.params.uuId;
+app.get('/configuio/project/delete/:uuId', asyncHandler( async function (req, res) {
+    try {
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = req.params.uuId;
+        let result = await project_item.deleteProjectFromDB();
+        res.json( {"success": true} );
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
+}));
 
-    project_item.loadProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
-
+app.post('/configuio/project/update/:uuId', asyncHandler( async function (req, res) {
+    try {
+        const data_post = req.body;
         if (typeof data_post.projectName !== 'string') {
             res.status(400).json({ "error": '"projectName" must be a string' });
             return;
         }
 
-        project_item.project = { "projectName":data_post.projectName };
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = req.params.uuId;
 
-        project_item.updateProject(null, function (err, data) {
-            if (err) {
-                console.log(err);
-                return res.status(400).json( {"error": err.message} ) ;
-            }
-            res.json(data);
-        });
-    });
-});
+        await project_item.loadProject();
+        project_item.project = { "projectName": data_post.projectName };
 
-app.get('/configuio/project/setActive/:uuId', function (req, res) {
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = req.params.uuId;
+        await project_item.updateProject();
 
-    project_item.loadProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
+        const result = await project_item.getProject();
+        res.json( {"success": true, "data": result} );
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
+}));
 
+app.get('/configuio/project/setActive/:uuId', asyncHandler( async function (req, res) {
+    try {
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = req.params.uuId;
+
+        await project_item.loadProject();
         project_item.project = { "active": true };
 
-        project_item.updateProject(null, function (err, data) {
-            if (err) {
-                console.log(err);
-                return res.status(400).json( {"error": err.message} ) ;
-            }
+        await project_item.updateProject();
 
-            res.json(data);
-        });
-    });
-});
+        res.json( {"success": true} );
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
 
-app.get('/configuio/project/setDeactive/:uuId', function (req, res) {
-    const project_item = new project.Project();
-    project_item.uuIdCurrent = req.params.uuId;
+}));
 
-    project_item.loadProject(null, function (err, data) {
-        if (err) {
-            console.log(err);
-            return res.status(400).json( {"error": err.message} ) ;
-        }
+app.get('/configuio/project/setDeactive/:uuId', asyncHandler( async function (req, res) {
+    try {
+        const project_item = new project.Project();
+        project_item.uuIdCurrent = req.params.uuId;
 
+        await project_item.loadProject();
         project_item.project = { "active": false };
 
-        project_item.updateProject(null, function (err, data) {
-            if (err) {
-                console.log(err);
-                return res.status(400).json( {"error": err.message} ) ;
-            }
+        await project_item.updateProject();
 
-            res.json(data);
-        });
-    });
-});
+        res.json( {"success": true} );
+    }catch (e) {
+        console.log(e);
+        return res.status(400).json( {"error": e.message} ) ;
+    }
+}));
 
 // TEST
 // app.get('/configuio/test', function (req, res) {
