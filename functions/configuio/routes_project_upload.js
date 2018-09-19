@@ -13,7 +13,11 @@ const asyncHandler = fn => (req, res, next) =>
         .catch(next);
 
 app.use(bodyParser.json({ strict: false }));
-
+app.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
 
 app.post('/configuio/upload/project/setCoverImage/:uuId', multer({limits: {fileSize:10*1024*1024}}).single("image"), function (req, res) {
     const uuId = req.params.uuId;

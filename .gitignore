@@ -61,5 +61,5 @@ typings/
 .next
 
 .idea
-
 .serverless
+package-lock.json
